@@ -19,45 +19,59 @@ export default function Home() {
     };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        setLoading(true);
-        
-        try {
-            const response = await fetch('/api/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(form),
-            });
-
-            const data = await response.json();
-            if (data.url) {
-                setFileUrl(data.url);
-
-                const downloadLink = document.createElement('a');
-                downloadLink.href = data.url;
-                downloadLink.download = data.url.split('/').pop() || 'invite.html';
-                document.body.appendChild(downloadLink);
-                downloadLink.click();
-                document.body.removeChild(downloadLink);
-                
-                setTimeout(() => {
-                    setForm({
-                        city: '',
-                        date: '',
-                        time: '',
-                        address: '',
-                        speaker: '',
-                        gender: 'имеющий'
-                    });
-                    setFileUrl('');
-                }, 3000);
-            }
-        } catch (error) {
-            console.error('Error generating file:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+      e.preventDefault();
+      setLoading(true);
+      
+      try {
+          const response = await fetch('/api/generate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(form),
+          });
+          
+          if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || 'Ошибка при генерации файла');
+          }
+          
+          // Get filename from Content-Disposition header
+          const contentDisposition = response.headers.get('Content-Disposition');
+          const filename = contentDisposition 
+              ? contentDisposition.split('filename=')[1].replace(/"/g, '') 
+              : `invite-${new Date().getTime()}.html`;
+          
+          // Create a blob from the response and download it
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          
+          const downloadLink = document.createElement('a');
+          downloadLink.href = url;
+          downloadLink.download = decodeURIComponent(filename);
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+          document.body.removeChild(downloadLink);
+          
+          // Clean up
+          window.URL.revokeObjectURL(url);
+          
+          // Reset form after short delay
+          setTimeout(() => {
+              setForm({
+                  city: '',
+                  date: '',
+                  time: '',
+                  address: '',
+                  speaker: '',
+                  gender: 'имеющий'
+              });
+          }, 1000);
+      } catch (error) {
+          console.error('Error generating file:', error);
+          alert(`Произошла ошибка: ${(error as Error).message}`);
+      } finally {
+          setLoading(false);
+      }
+  };
 
     return (
         <div className="max-w-md mx-auto mt-10 p-4 border rounded shadow-md">
