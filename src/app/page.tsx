@@ -11,145 +11,224 @@ export default function Home() {
         speaker: '',
         gender: 'имеющий'
     });
-    const [fileUrl, setFileUrl] = useState('');
+    const [errors, setErrors] = useState({
+        date: '',
+        time: ''
+    });
     const [loading, setLoading] = useState(false);
 
+    // Validate date format (DD.MM.YYYY)
+    const validateDate = (date: string) => {
+        if (!date) return '';
+        
+        const dateRegex = /^\d{2}\.\d{2}\.\d{4}$/;
+        if (!dateRegex.test(date)) {
+            return 'Формат даты должен быть ДД.ММ.ГГГГ, например: 07.04.2025';
+        }
+        return '';
+    };
+
+    // Validate time format (HH:MM-HH:MM)
+    const validateTime = (time: string) => {
+        if (!time) return '';
+        
+        // Updated regex to require HH:MM-HH:MM format (both start and end times)
+        const timeRegex = /^\d{2}:\d{2}-\d{2}:\d{2}$/;
+        if (!timeRegex.test(time)) {
+            return 'Формат времени должен быть ЧЧ:ММ-ЧЧ:ММ, например: 15:45-18:25';
+        }
+        return '';
+    };
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setForm({ ...form, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+        setForm({ ...form, [name]: value });
+        
+        // Validate inputs as they change
+        if (name === 'date') {
+            setErrors(prev => ({ ...prev, date: validateDate(value) }));
+        } else if (name === 'time') {
+            setErrors(prev => ({ ...prev, time: validateTime(value) }));
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-      setLoading(true);
-      
-      try {
-          const response = await fetch('/api/generate', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(form),
-          });
-          
-          if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.error || 'Ошибка при генерации файла');
-          }
-          
-          // Get filename from Content-Disposition header
-          const contentDisposition = response.headers.get('Content-Disposition');
-          const filename = contentDisposition 
-              ? contentDisposition.split('filename=')[1].replace(/"/g, '') 
-              : `invite-${new Date().getTime()}.html`;
-          
-          // Create a blob from the response and download it
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          
-          const downloadLink = document.createElement('a');
-          downloadLink.href = url;
-          downloadLink.download = decodeURIComponent(filename);
-          document.body.appendChild(downloadLink);
-          downloadLink.click();
-          document.body.removeChild(downloadLink);
-          
-          // Clean up
-          window.URL.revokeObjectURL(url);
-          
-          // Reset form after short delay
-          setTimeout(() => {
-              setForm({
-                  city: '',
-                  date: '',
-                  time: '',
-                  address: '',
-                  speaker: '',
-                  gender: 'имеющий'
-              });
-          }, 1000);
-      } catch (error) {
-          console.error('Error generating file:', error);
-          alert(`Произошла ошибка: ${(error as Error).message}`);
-      } finally {
-          setLoading(false);
-      }
-  };
+        e.preventDefault();
+        
+        // Validate all fields before submission
+        const dateError = validateDate(form.date);
+        const timeError = validateTime(form.time);
+        
+        setErrors({
+            date: dateError,
+            time: timeError
+        });
+        
+        // Don't submit if there are validation errors
+        if (dateError || timeError) {
+            return;
+        }
+        
+        setLoading(true);
+        
+        try {
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(form),
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Ошибка при генерации файла');
+            }
+            
+            // Get filename from Content-Disposition header
+            const contentDisposition = response.headers.get('Content-Disposition');
+            const filename = contentDisposition 
+                ? contentDisposition.split('filename=')[1].replace(/"/g, '') 
+                : `invite-${new Date().getTime()}.html`;
+            
+            // Create a blob from the response and download it
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            
+            const downloadLink = document.createElement('a');
+            downloadLink.href = url;
+            downloadLink.download = decodeURIComponent(filename);
+            document.body.appendChild(downloadLink);
+            downloadLink.click();
+            document.body.removeChild(downloadLink);
+            
+            // Clean up
+            window.URL.revokeObjectURL(url);
+            
+            // Reset form after short delay
+            setTimeout(() => {
+                setForm({
+                    city: '',
+                    date: '',
+                    time: '',
+                    address: '',
+                    speaker: '',
+                    gender: 'имеющий'
+                });
+                setErrors({ date: '', time: '' });
+            }, 1000);
+        } catch (error) {
+            console.error('Error generating file:', error);
+            alert(`Произошла ошибка: ${(error as Error).message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div className="max-w-md mx-auto mt-10 p-4 border rounded shadow-md">
             <h2 className="text-xl font-bold mb-4">Создать приглашение</h2>
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-                <input 
-                    type="text" 
-                    name="city" 
-                    placeholder="Город" 
-                    value={form.city}
-                    onChange={handleChange} 
-                    required 
-                    className="border p-2 rounded" 
-                />
-                <input 
-                    type="text" 
-                    name="date" 
-                    placeholder="Дата (например 07.04.2025)" 
-                    value={form.date}
-                    onChange={handleChange} 
-                    required 
-                    className="border p-2 rounded" 
-                />
-                <input 
-                    type="text" 
-                    name="time" 
-                    placeholder="Время (например 15:45-18:25)" 
-                    value={form.time}
-                    onChange={handleChange} 
-                    required 
-                    className="border p-2 rounded" 
-                />
-                <input 
-                    type="text" 
-                    name="address" 
-                    placeholder="Адрес" 
-                    value={form.address}
-                    onChange={handleChange} 
-                    required 
-                    className="border p-2 rounded" 
-                />
-                <input 
-                    type="text" 
-                    name="speaker" 
-                    placeholder="ФИО спикера" 
-                    value={form.speaker}
-                    onChange={handleChange} 
-                    required 
-                    className="border p-2 rounded" 
-                />
+                <div className="flex flex-col">
+                    <label htmlFor="city" className="font-medium mb-1">Город</label>
+                    <input 
+                        id="city"
+                        type="text" 
+                        name="city" 
+                        placeholder="Например: Красноярск" 
+                        value={form.city}
+                        onChange={handleChange} 
+                        required 
+                        className="border p-2 rounded" 
+                    />
+                </div>
                 
-                <div className="flex gap-2">
-                    <label className="flex items-center gap-2">
-                      <input 
-                        type="radio" 
-                        name="gender" 
-                        value="имеющий" 
-                        checked={form.gender === 'имеющий'} 
+                <div className="flex flex-col">
+                    <label htmlFor="date" className="font-medium mb-1">Дата</label>
+                    <input 
+                        id="date"
+                        type="text" 
+                        name="date" 
+                        placeholder="Например: 07.04.2025" 
+                        value={form.date}
                         onChange={handleChange} 
-                      />
-                      <span>имеющий</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input 
-                        type="radio" 
-                        name="gender" 
-                        value="имеющая" 
-                        checked={form.gender === 'имеющая'} 
+                        required 
+                        className={`border p-2 rounded ${errors.date ? 'border-red-500' : ''}`} 
+                    />
+                    {errors.date && <p className="text-red-500 text-sm mt-1">{errors.date}</p>}
+                </div>
+                
+                <div className="flex flex-col">
+                    <label htmlFor="time" className="font-medium mb-1">Время</label>
+                    <input 
+                        id="time"
+                        type="text" 
+                        name="time" 
+                        placeholder="Например: 15:45-18:25" 
+                        value={form.time}
                         onChange={handleChange} 
-                      />
-                      <span>имеющая</span>
-                    </label>
+                        required 
+                        className={`border p-2 rounded ${errors.time ? 'border-red-500' : ''}`}
+                    />
+                    {errors.time && <p className="text-red-500 text-sm mt-1">{errors.time}</p>}
+                </div>
+                
+                <div className="flex flex-col">
+                    <label htmlFor="address" className="font-medium mb-1">Адрес</label>
+                    <input 
+                        id="address"
+                        type="text" 
+                        name="address" 
+                        placeholder="Полный адрес проведения мероприятия" 
+                        value={form.address}
+                        onChange={handleChange} 
+                        required 
+                        className="border p-2 rounded" 
+                    />
+                </div>
+                
+                <div className="flex flex-col">
+                    <label htmlFor="speaker" className="font-medium mb-1">ФИО спикера</label>
+                    <input 
+                        id="speaker"
+                        type="text" 
+                        name="speaker" 
+                        placeholder="Фамилия Имя Отчество" 
+                        value={form.speaker}
+                        onChange={handleChange} 
+                        required 
+                        className="border p-2 rounded" 
+                    />
+                </div>
+                
+                <div className="flex flex-col">
+                    <label className="font-medium mb-1">Пол спикера</label>
+                    <div className="flex gap-4">
+                        <label className="flex items-center gap-2">
+                          <input 
+                            type="radio" 
+                            name="gender" 
+                            value="имеющий" 
+                            checked={form.gender === 'имеющий'} 
+                            onChange={handleChange} 
+                          />
+                          <span>Мужской</span>
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <input 
+                            type="radio" 
+                            name="gender" 
+                            value="имеющая" 
+                            checked={form.gender === 'имеющая'} 
+                            onChange={handleChange} 
+                          />
+                          <span>Женский</span>
+                        </label>
+                    </div>
                 </div>
 
                 <button 
                     type="submit" 
-                    className="bg-blue-500 text-white p-2 rounded flex justify-center items-center cursor-pointer" 
-                    disabled={loading}
+                    className="bg-blue-500 text-white p-2 rounded flex justify-center items-center cursor-pointer mt-2" 
+                    disabled={loading || !!errors.date || !!errors.time}
                 >
                     {loading ? (
                         <>
@@ -162,8 +241,6 @@ export default function Home() {
                     ) : "Сгенерировать"}
                 </button>
             </form>
-
-            {fileUrl && <p className="mt-4"><a href={fileUrl} className="text-blue-600 underline">Скачать файл</a></p>}
         </div>
     );
 }
