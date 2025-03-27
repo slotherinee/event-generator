@@ -17,7 +17,6 @@ export default function Home() {
     });
     const [loading, setLoading] = useState(false);
 
-    // Validate date format (DD.MM.YYYY)
     const validateDate = (date: string) => {
         if (!date) return '';
         
@@ -28,11 +27,9 @@ export default function Home() {
         return '';
     };
 
-    // Validate time format (HH:MM-HH:MM)
     const validateTime = (time: string) => {
         if (!time) return '';
         
-        // Updated regex to require HH:MM-HH:MM format (both start and end times)
         const timeRegex = /^\d{2}:\d{2}-\d{2}:\d{2}$/;
         if (!timeRegex.test(time)) {
             return 'Формат времени должен быть ЧЧ:ММ-ЧЧ:ММ, например: 15:45-18:25';
@@ -40,22 +37,71 @@ export default function Home() {
         return '';
     };
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        setForm({ ...form, [name]: value });
+    const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        let value = e.target.value;
         
-        // Validate inputs as they change
-        if (name === 'date') {
-            setErrors(prev => ({ ...prev, date: validateDate(value) }));
-        } else if (name === 'time') {
-            setErrors(prev => ({ ...prev, time: validateTime(value) }));
+        const digits = value.replace(/\D/g, '');
+        
+        let formattedValue = '';
+        if (digits.length > 0) {
+            formattedValue = digits.substring(0, 2);
+            
+            if (digits.length > 2) {
+                formattedValue += ':' + digits.substring(2, 4);
+                
+                if (digits.length > 4) {
+                    formattedValue += '-' + digits.substring(4, 6);
+                    
+                    if (digits.length > 6) {
+                        formattedValue += ':' + digits.substring(6, 8);
+                    }
+                }
+            }
         }
+        
+        setForm({ ...form, time: formattedValue });
+        
+        setErrors(prev => ({ ...prev, time: validateTime(formattedValue) }));
     };
+
+    const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        let value = e.target.value;
+        
+        const digits = value.replace(/\D/g, '');
+        
+        let formattedValue = '';
+        if (digits.length > 0) {
+            formattedValue = digits.substring(0, 2);
+            
+            if (digits.length > 2) {
+                formattedValue += '.' + digits.substring(2, 4);
+                
+                if (digits.length > 4) {
+                    formattedValue += '.' + digits.substring(4, 8);
+                }
+            }
+        }
+        
+        setForm({ ...form, date: formattedValue });
+        
+        setErrors(prev => ({ ...prev, date: validateDate(formattedValue) }));
+    };
+
+const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    
+    if (name === 'date') {
+        handleDateChange(e);
+    } else if (name === 'time') {
+        handleTimeChange(e);
+    } else {
+        setForm({ ...form, [name]: value });
+    }
+};
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         
-        // Validate all fields before submission
         const dateError = validateDate(form.date);
         const timeError = validateTime(form.time);
         
@@ -64,7 +110,6 @@ export default function Home() {
             time: timeError
         });
         
-        // Don't submit if there are validation errors
         if (dateError || timeError) {
             return;
         }
@@ -83,13 +128,11 @@ export default function Home() {
                 throw new Error(errorData.error || 'Ошибка при генерации файла');
             }
             
-            // Get filename from Content-Disposition header
             const contentDisposition = response.headers.get('Content-Disposition');
             const filename = contentDisposition 
                 ? contentDisposition.split('filename=')[1].replace(/"/g, '') 
                 : `invite-${new Date().getTime()}.html`;
             
-            // Create a blob from the response and download it
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             
@@ -100,10 +143,8 @@ export default function Home() {
             downloadLink.click();
             document.body.removeChild(downloadLink);
             
-            // Clean up
             window.URL.revokeObjectURL(url);
             
-            // Reset form after short delay
             setTimeout(() => {
                 setForm({
                     city: '',
