@@ -166,7 +166,7 @@ const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 
     return (
         <div className="max-w-md mx-auto mt-10 p-4 border rounded shadow-md">
-            <h2 className="text-xl font-bold mb-4">Создать приглашение</h2>
+            <h2 className="text-xl font-bold mb-4">Создать приглашение на мастер класс</h2>
             <form onSubmit={handleSubmit} className="flex flex-col gap-3">
                 <div className="flex flex-col">
                     <label htmlFor="city" className="font-medium mb-1">Город</label>
